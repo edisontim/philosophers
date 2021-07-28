@@ -1,82 +1,80 @@
 #include "philo.h"
 
-int	eat(t_params *pa, t_data *data)
+static int	eat(t_params *pa, t_data *data, int state)
 {
-	if (data->index_mod == 0 && data->forks != 2)
+	if (state == EAT)
 	{
-		if (take_forks_even(pa, data->index, data->upper_ind, &data->forks))
-			pa->philo_d_a[data->index].ate++;
-		else
+		if (!take_forks(pa, data, data->index))
 			return (-1);
+		return (EATING);
 	}
-	else if (data->forks != 2)
+	if ((ts(pa) >= data->t_o_m + data->t_t_e) && state == EATING)
 	{
-		if (take_forks_odd(pa, data->index, data->upper_ind, &data->forks))
-			pa->philo_d_a[data->index].ate++;
+		if (!drop_forks(pa, data->index, data))
+			return (-1);
+		data->sleep_at = ts(pa);
+		return (SLEEP);
 	}
-	if ((ts(pa) >= pa->philo_d_a[data->index].t_o_m + pa->t_t_e) \
-	&& pa->philo_d_a[data->index].ate)
-	{
-		if (data->index_mod == 0 && data->forks == 2)
-			drop_forks_even(pa, data->index, data->upper_ind);
-		else if (data->forks == 2)
-			drop_forks_odd(pa, data->index, data->upper_ind);
-		data->forks -= 2;
-		pa->philo_d_a[data->index].state = SLEEP;
-		pa->philo_d_a[data->index].s_time = ts(pa);
-	}
-	return (0);
+	return (state);
 }
 
-int	sleep_think(t_params *pa, t_data *data)
+static int	sleep_think(t_params *pa, t_data *data, int state)
 {
-	if (pa->philo_d_a[data->index].state == SLEEP)
+	if (state == SLEEP)
 	{
-		if (ts(pa) >= pa->philo_d_a[data->index].s_time + \
-		pa->t_t_s)
-			pa->philo_d_a[data->index].state = THINK;
+		if (ts(pa) >= data->sleep_at + data->t_t_s)
+			return (THINK);
+		else
+			usleep(50);
+		return (SLEEP);
 	}
-	if (pa->philo_d_a[data->index].state == THINK)
+	if (state == THINK)
 	{
 		ft_putaction(pa, "is thinking.\n", data->index, 13);
-		pa->philo_d_a[data->index].state = EAT;
+		return (EAT);
 	}
-	return (0);
+	return (state);
 }
 
 int	do_philo_stuff(t_params *pa, t_data *data)
 {
-	while (pa->philo_d_a[data->index].ate < pa->n_times_to_eat)
+	int	state;
+
+	state = EAT;
+	while (1)
 	{
-		if (pa->philo_d_a[data->index].state == EAT)
-			if (eat(pa, data) == -1)
-				break ;
-		if (sleep_think(pa, data) == -1)
-			break ;
-		usleep(50);
+		state = eat(pa, data, state);
+		if (state == -1)
+			return (0);
+		usleep(400);
+		state = sleep_think(pa, data, state);
+		if (state == -1)
+			return (0);
+		usleep(400);
 	}
 	return (0);
 }
 
 void	*ft_philosopher(void *p_data)
 {
-	t_data		data;
-	static int	index = 0;
-	t_params	*pa;
+	t_data			data;
+	static int		index = 0;
+	t_params		*pa;
 
 	pa = p_data;
 	memset((void *) &data, 0, sizeof(t_data));
-	pthread_mutex_lock(&pa->check_state);
 	data.index = index;
 	index++;
-	pthread_mutex_unlock(&pa->check_state);
-	data.upper_ind = (data.index + 1) % pa->philo_n;
-	data.index_mod = data.index % 2;
 	if (data.index == 0)
 		pa->start_time = ts(pa);
-	pa->philo_d_a[data.index].t_o_m = ts(pa);
+	pa->philo_d_a[data.index].t_o_m = pa->start_time;
+	data.t_o_m = pa->start_time;
+	data.n_times_to_eat = pa->n_times_to_eat;
+	data.t_t_s = pa->t_t_s;
+	data.t_t_e = pa->t_t_e;
+	data.philo_n = pa->philo_n;
+	if (data.index % 2 == 0)
+		usleep(pa->t_t_e * 1000 / 2);
 	do_philo_stuff(pa, &data);
-	pthread_mutex_unlock(&pa->mtex_fo[data.index]);
-	pthread_mutex_unlock(&pa->mtex_fo[data.upper_ind]);
 	return (NULL);
 }

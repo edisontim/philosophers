@@ -1,5 +1,4 @@
 #include "philo.h"
-#include "philo_bonus.h"
 
 int	nbr_size(long long int nbr)
 {
@@ -16,7 +15,7 @@ int	nbr_size(long long int nbr)
 	return (i);
 }
 
-char	*ft_putnbr_base(char *tab, long long int nb, char *base, int *index)
+void	ft_putnbr_base(long long int nb, char *base)
 {
 	long long int	nbr;
 	unsigned int	size;
@@ -25,23 +24,14 @@ char	*ft_putnbr_base(char *tab, long long int nb, char *base, int *index)
 	while (base[size])
 		size++;
 	nbr = nb;
-	if (nb < 0)
-	{
-		tab[0] = '-';
-		nbr = -nbr;
-		*index = *index + 1;
-	}
 	if (nbr < size)
-	{
-		tab[*index] = base[nbr];
-		*index = *index + 1;
-	}
+		write(1, &base[nbr], 1);
 	else
 	{
-		ft_putnbr_base(tab, nbr / size, base, index);
-		ft_putnbr_base(tab, nbr % size, base, index);
+		ft_putnbr_base(nbr / size, base);
+		ft_putnbr_base(nbr % size, base);
 	}
-	return (tab);
+	return ;
 }
 
 int	is_num(char c)

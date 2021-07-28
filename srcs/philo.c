@@ -59,25 +59,25 @@ int	mutex_thread_init(t_params *pa)
 	int	i;
 
 	i = -1;
-	if (pthread_mutex_init(&pa->write_lock, NULL))
-		return (free_all(pa, 1, 1, 1));
-	if (pthread_mutex_init(&pa->check_state, NULL))
-		return (free_all(pa, 1, 1, 1));
-	pa->stop = 0;
 	while (++i < pa->philo_n)
 	{
 		pthread_mutex_init(&pa->mtex_fo[i], NULL);
 		pa->philo_d_a[i].state = EAT;
 		pa->philo_d_a[i].limit = 0;
-		pa->philo_d_a[i].s_time = 0;
 		pa->philo_d_a[i].ate = 0;
 	}
 	i = -1;
+	if (pthread_create(&pa->monitor, NULL, time_monitor, (void *)pa) != 0)
+		return (0);
 	while (++i < pa->philo_n)
 	{
-		pthread_create(&pa->philos[i], NULL, ft_philosopher, (void *)pa);
-		usleep(50);
+		if (pthread_create(&pa->philos[i], NULL, \
+		ft_philosopher, (void *)pa) != 0)
+			return (0);
+		pthread_detach(pa->philos[i]);
 	}
+	usleep(10000);
+	pthread_mutex_unlock(&pa->check_death);
 	return (1);
 }
 
@@ -87,21 +87,24 @@ int	main(int argc, char *argv[])
 	t_params		pa;
 
 	i = -1;
+	pa = (t_params){};
 	if (argc != 6 && argc != 5)
 		return (1);
 	if (argc == 0)
 		return (1);
 	if (!var_init(argc, argv, &pa))
 		return (1);
+	if (pthread_mutex_init(&pa.write_lock, NULL))
+		return (free_all(&pa, 1, 1, 1));
+	if (pthread_mutex_init(&pa.check_state, NULL))
+		return (free_all(&pa, 1, 1, 1));
+	if (pthread_mutex_init(&pa.check_death, NULL))
+		return (free_all(&pa, 1, 1, 1));
+	pthread_mutex_lock(&pa.check_death);
 	if (!mutex_thread_init(&pa))
 		return (1);
-	pthread_create(&pa.time_thread, NULL, time_monitor, (void *)&pa);
-	if (pa.n_times_to_eat != 9223372036854775807L)
-	{
-		while (++i < pa.philo_n)
-			pthread_join(pa.philos[i], NULL);
-	}
-	pthread_join(pa.time_thread, NULL);
+	pthread_join(pa.monitor, NULL);
+	usleep(200000);
 	clean_exit(&pa);
 	return (0);
 }
